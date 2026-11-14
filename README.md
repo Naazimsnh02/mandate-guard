@@ -19,10 +19,14 @@ Your "yes" becomes a signed mandate. The agent can only pay inside it.
 ![Airwallex](https://img.shields.io/badge/payments-Airwallex%20sandbox-612FFF)
 ![Visa](https://img.shields.io/badge/card-Visa-1A1F71?logo=visa&logoColor=white)
 ![Playwright](https://img.shields.io/badge/browser-Playwright-2EAD33?logo=playwright&logoColor=white)
+<br>
+[![Demo video](https://img.shields.io/badge/demo-watch%20on%20YouTube-FF0000?logo=youtube&logoColor=white)](https://youtu.be/bWZdqyKE_LU)
 
 *Airwallex Agentic Banking Hackathon · Starter Kit 09 · Agentic Commerce: Approval-Bound Shopping Agent*
 
-<img src="docs/images/drift.png" width="900" alt="Mandate Guard pausing a checkout whose price and fees changed after approval">
+<a href="https://youtu.be/bWZdqyKE_LU"><img src="https://img.youtube.com/vi/bWZdqyKE_LU/maxresdefault.jpg" width="900" alt="Watch the Mandate Guard demo video on YouTube"></a>
+
+**[▶ Watch the 4-minute demo](https://youtu.be/bWZdqyKE_LU)**: four drift scenarios plus a live payment on the real Airi CLI.
 
 </div>
 
@@ -30,6 +34,7 @@ Your "yes" becomes a signed mandate. The agent can only pay inside it.
 
 ## Contents
 
+- [Demo video](#demo-video)
 - [The problem](#the-problem)
 - [How it works](#how-it-works)
 - [Verified end to end](#verified-end-to-end)
@@ -42,6 +47,21 @@ Your "yes" becomes a signed mandate. The agent can only pay inside it.
 - [Project structure](#project-structure)
 - [Limitations and roadmap](#limitations-and-roadmap)
 - [License](#license)
+
+## Demo video
+
+[![Mandate Guard demo](https://img.shields.io/badge/YouTube-Mandate%20Guard%20demo%20(4%3A03)-FF0000?logo=youtube&logoColor=white)](https://youtu.be/bWZdqyKE_LU)
+
+| Time | Chapter |
+|---|---|
+| 0:00 | The problem and the solution |
+| 0:35 | Demo 1: happy path, signed mandate, exact match, paid |
+| 1:19 | Demo 2: price rises and a fee appears after approval, pause and re-consent |
+| 2:08 | Demo 3: a pre-ticked subscription is caught and cancelled |
+| 2:33 | Demo 4: lost payment response, reconciled by idempotency key, one order |
+| 3:07 | Verifying the hash-chained audit log |
+| 3:14 | Live run on the real Airi CLI: passkey, single-use Visa credential, Airwallex charge |
+| 3:44 | Safety by design |
 
 ## The problem
 
