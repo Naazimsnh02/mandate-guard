@@ -1,0 +1,17 @@
+# secrets
+.env
+.env.*
+!.env.example
+
+# deps / build
+node_modules/
+dist/
+.vite/
+
+# runtime data
+data/*.db
+data/audit/
+data/keys/
+playwright/.auth/
+test-results/
+*.log

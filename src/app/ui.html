@@ -1,0 +1,586 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mandate Guard · Intent-bound checkout</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><path d='M16 2l11 4v9c0 7-4.7 12.6-11 15C9.7 27.6 5 22 5 15V6z' fill='%234f46e5'/><path d='M11 16l3.5 3.5L21.5 12' stroke='white' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>">
+<style>
+:root{
+  --bg:#f5f6fa;--surface:#fff;--ink:#0f172a;--ink-2:#334155;--muted:#64748b;--faint:#94a3b8;--line:#e5e7ef;--line-2:#eef0f6;
+  --accent:#4f46e5;--accent-2:#6366f1;--accent-soft:#eef2ff;
+  --ok:#059669;--ok-soft:#ecfdf5;--warn:#d97706;--warn-soft:#fffbeb;--bad:#dc2626;--bad-soft:#fef2f2;--info:#0284c7;--info-soft:#f0f9ff;
+  --r:14px;--shadow:0 1px 2px rgba(15,23,42,.04),0 4px 16px rgba(15,23,42,.05);
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{font:14px/1.5 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased}
+a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+code,.mono{font-family:var(--mono);font-size:12px}
+
+/* top bar */
+.top{position:sticky;top:0;z-index:10;background:rgba(15,23,42,.96);backdrop-filter:blur(8px);color:#fff}
+.top-in{max-width:1440px;margin:auto;display:flex;align-items:center;gap:18px;padding:12px 28px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:16px;letter-spacing:-.01em}
+.brand small{display:block;font-weight:500;font-size:11.5px;color:#a5b4fc;letter-spacing:0}
+.chips{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+.chip{display:inline-flex;align-items:center;gap:7px;padding:5px 11px;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.1);font-size:12px;color:#e2e8f0;white-space:nowrap}
+.chip b{color:#fff;font-weight:600}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--faint);flex:none}
+.dot.ok{background:#34d399;box-shadow:0 0 0 3px rgba(52,211,153,.2)}.dot.bad{background:#f87171}.dot.warn{background:#fbbf24}
+
+/* layout */
+main{max-width:1440px;margin:auto;padding:24px 28px 60px;display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:24px;align-items:start}
+@media(max-width:1100px){main{grid-template-columns:1fr}}
+.col{display:flex;flex-direction:column;gap:20px;min-width:0}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow)}
+.card-h{display:flex;align-items:center;gap:10px;padding:16px 20px;border-bottom:1px solid var(--line-2)}
+.card-h h2{margin:0;white-space:nowrap;font-size:13px;font-weight:650;letter-spacing:.02em;color:var(--ink-2)}
+.card-h .sub{color:var(--muted);font-size:12px}
+.card-h .right{margin-left:auto;display:flex;gap:8px;align-items:center}
+.card-b{padding:18px 20px}
+.eyebrow{font-size:11px;font-weight:650;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+
+/* form */
+.intent{position:relative}
+textarea{width:100%;min-height:76px;resize:vertical;border:1px solid var(--line);border-radius:12px;padding:14px 16px;font-family:inherit;font-size:16px;font-weight:500;line-height:1.45;color:var(--ink);background:#fbfbfe;transition:.15s}
+textarea:focus,input:focus,select:focus{outline:none;border-color:var(--accent-2);box-shadow:0 0 0 4px rgba(99,102,241,.12);background:#fff}
+.examples{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 2px}
+.ex{border:1px dashed var(--line);background:#fff;color:var(--ink-2);border-radius:999px;padding:5px 11px;font-size:12px;cursor:pointer}
+.ex:hover{border-color:var(--accent-2);color:var(--accent)}
+.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:700px){.grid3,.grid2{grid-template-columns:1fr}}
+label.f{display:block;font-size:12px;font-weight:550;color:var(--muted);margin:14px 0 6px}
+input,select{width:100%;height:38px;padding:0 12px;border:1px solid var(--line);border-radius:10px;font:inherit;color:var(--ink);background:#fff}
+details.manual{margin-top:14px;border-top:1px solid var(--line-2);padding-top:12px}
+details.manual summary{cursor:pointer;color:var(--muted);font-size:12.5px;list-style:none}
+details.manual summary::before{content:"▸ ";}details.manual[open] summary::before{content:"▾ "}
+
+/* buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:40px;padding:0 18px;border-radius:10px;border:1px solid transparent;font-family:inherit;font-size:14px;font-weight:600;line-height:1;cursor:pointer;transition:transform .05s,background .15s,box-shadow .15s;white-space:nowrap}
+.btn:active{transform:translateY(1px)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn.primary{background:var(--accent);color:#fff;box-shadow:0 1px 0 rgba(255,255,255,.2) inset,0 6px 16px rgba(79,70,229,.25)}
+.btn.primary:hover:not(:disabled){background:#4338ca}
+.btn.ok{background:var(--ok);color:#fff;box-shadow:0 6px 16px rgba(5,150,105,.22)}
+.btn.ok:hover:not(:disabled){background:#047857}
+.btn.danger{background:#fff;color:var(--bad);border-color:#fecaca}
+.btn.danger:hover:not(:disabled){background:var(--bad-soft)}
+.btn.ghost{background:#fff;color:var(--ink-2);border-color:var(--line)}
+.btn.ghost:hover:not(:disabled){border-color:#cbd5e1;background:#f8fafc}
+.btn.sm{height:32px;padding:0 12px;font-size:12.5px;border-radius:8px}
+.actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:18px}
+.actions .hint{color:var(--muted);font-size:12px;margin-left:auto}
+
+/* stepper */
+.stepper{display:grid;grid-template-columns:repeat(6,1fr);gap:0;padding:18px 20px}
+.step{position:relative;text-align:center;font-size:11.5px;color:var(--faint);font-weight:550}
+.step .n{width:28px;height:28px;margin:0 auto 7px;border-radius:50%;display:grid;place-items:center;background:#fff;border:2px solid var(--line);font-size:12px;font-weight:700;color:var(--faint);position:relative;z-index:1}
+.step::before{content:"";position:absolute;top:14px;left:-50%;width:100%;height:2px;background:var(--line)}
+.step:first-child::before{display:none}
+.step.done{color:var(--ink-2)}.step.done .n{background:var(--ok);border-color:var(--ok);color:#fff}.step.done::before{background:var(--ok)}
+.step.active{color:var(--accent)}.step.active .n{border-color:var(--accent);color:var(--accent);box-shadow:0 0 0 5px rgba(79,70,229,.12)}
+.step.warn{color:var(--warn)}.step.warn .n{border-color:var(--warn);background:var(--warn);color:#fff}
+.step.bad{color:var(--bad)}.step.bad .n{border-color:var(--bad);background:var(--bad);color:#fff}
+
+/* status pill */
+.pill{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;background:#f1f5f9;color:var(--ink-2)}
+.pill::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.pill.PROPOSED{background:var(--accent-soft);color:var(--accent)}
+.pill.APPROVED{background:var(--ok-soft);color:var(--ok)}
+.pill.AWAITING_RECONSENT{background:var(--warn-soft);color:var(--warn)}
+.pill.PAYING,.pill.UNCONFIRMED{background:var(--info-soft);color:var(--info)}
+.pill.PAID{background:var(--ok);color:#fff}.pill.PAID::before{background:#fff}
+.pill.DECLINED,.pill.BLOCKED,.pill.CANCELLED{background:var(--bad-soft);color:var(--bad)}
+.pill.ACTIVE{background:var(--ok-soft);color:var(--ok)}.pill.SUPERSEDED{background:#f1f5f9;color:var(--muted)}
+.pill.CONSUMED{background:var(--accent-soft);color:var(--accent)}.pill.VOID{background:var(--bad-soft);color:var(--bad)}
+
+/* session */
+.intent-line{font-size:18px;font-weight:650;letter-spacing:-.01em;margin:0 0 4px}
+.meta-line{color:var(--muted);font-size:12.5px}
+.agent{margin-top:16px;border:1px solid var(--line-2);background:#fafbff;border-radius:12px;padding:12px 14px}
+.agent .eyebrow{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.agent ol{margin:0;padding-left:18px;font-family:var(--mono);font-size:12px;color:var(--ink-2)}
+.agent p{margin:8px 0 0;color:var(--ink);font-size:13.5px}
+.receipt{width:100%;border-collapse:collapse;font-size:13.5px}
+.receipt th{font-size:11px;font-weight:650;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;text-align:left;padding:0 0 8px}
+.receipt td{padding:10px 0;border-top:1px solid var(--line-2);vertical-align:top}
+.receipt .r{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.receipt .s{display:block;color:var(--muted);font-size:12px;margin-top:1px}
+.receipt tr.total td{border-top:2px solid var(--ink);font-weight:700;font-size:15px;padding-top:12px}
+.receipt tr.chg td{background:var(--warn-soft)}.receipt tr.chg td:first-child{box-shadow:inset 3px 0 0 var(--warn);padding-left:10px}
+.receipt tr.add td{background:var(--bad-soft)}.receipt tr.add td:first-child{box-shadow:inset 3px 0 0 var(--bad);padding-left:10px}
+.receipt tr.rem td{color:var(--faint);text-decoration:line-through}
+.was{color:var(--faint);text-decoration:line-through;font-weight:500;margin-right:6px;font-size:12px}
+.tag{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:1px 6px;border-radius:4px;margin-left:6px;vertical-align:1px}
+.tag.add{background:#fee2e2;color:var(--bad)}.tag.chg{background:#fef3c7;color:#b45309}.tag.rem{background:#f1f5f9;color:var(--muted)}
+.binding{display:flex;gap:16px;flex-wrap:wrap;margin-top:14px;padding:12px 14px;border-radius:12px;background:#f8fafc;border:1px solid var(--line-2);font-size:12.5px;color:var(--ink-2)}
+.binding span{display:inline-flex;gap:6px;align-items:center}.binding b{font-weight:600}
+
+.banner{display:flex;gap:14px;align-items:flex-start;padding:16px 18px;border-radius:12px;margin-bottom:16px}
+.banner .ic{flex:none;width:36px;height:36px;border-radius:10px;display:grid;place-items:center;font-size:18px}
+.banner h3{margin:0 0 2px;font-size:15px}.banner p{margin:0;font-size:13px;color:var(--ink-2)}
+.banner.warn{background:var(--warn-soft);border:1px solid #fde68a}.banner.warn .ic{background:#fef3c7}
+.banner.ok{background:var(--ok-soft);border:1px solid #a7f3d0}.banner.ok .ic{background:#d1fae5}
+.banner.bad{background:var(--bad-soft);border:1px solid #fecaca}.banner.bad .ic{background:#fee2e2}
+.banner.info{background:var(--info-soft);border:1px solid #bae6fd}.banner.info .ic{background:#e0f2fe}
+.findings{display:grid;gap:8px;margin-bottom:18px}
+.finding{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:#fff;font-size:13px}
+.finding code{flex:none;font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:5px;background:#fef3c7;color:#92400e;margin-top:1px}
+.finding.block code{background:#fee2e2;color:#991b1b}.finding.info code{background:#f1f5f9;color:var(--muted)}
+.cmp{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:800px){.cmp{grid-template-columns:1fr}}
+.pane{border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.pane.new{border-color:#fcd34d;background:linear-gradient(#fffdf5,#fff)}
+.pane h4{margin:0 0 10px;font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.pane.new h4{color:#b45309}
+
+.airi{display:flex;align-items:center;gap:16px;padding:18px;border-radius:14px;background:linear-gradient(135deg,#eef2ff,#f5f3ff);border:1px solid #c7d2fe}
+.airi .lock{width:46px;height:46px;border-radius:12px;background:var(--accent);color:#fff;display:grid;place-items:center;font-size:20px;flex:none;box-shadow:0 8px 20px rgba(79,70,229,.3)}
+.airi h3{margin:0;font-size:15px}.airi p{margin:2px 0 0;color:var(--ink-2);font-size:13px}
+.airi .btn{margin-left:auto}
+.spin{width:16px;height:16px;border-radius:50%;border:2px solid rgba(0,0,0,.12);border-top-color:currentColor;animation:spin .8s linear infinite;flex:none}
+@keyframes spin{to{transform:rotate(360deg)}}
+.working{display:flex;gap:10px;align-items:center;padding:12px 14px;border-radius:10px;background:#f8fafc;border:1px solid var(--line-2);color:var(--ink-2);font-size:13px;margin-top:16px}
+.err{padding:12px 14px;border-radius:10px;background:var(--bad-soft);border:1px solid #fecaca;color:#991b1b;font-size:13px;margin-top:14px}
+
+.success{text-align:center;padding:10px 0 4px}
+.success .big{width:64px;height:64px;margin:0 auto 12px;border-radius:50%;background:var(--ok);color:#fff;display:grid;place-items:center;font-size:30px;box-shadow:0 10px 30px rgba(5,150,105,.3)}
+.success h3{margin:0;font-size:22px;letter-spacing:-.01em}
+.success p{margin:4px 0 0;color:var(--muted)}
+.kv{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:var(--line-2);border:1px solid var(--line-2);border-radius:12px;overflow:hidden;margin-top:18px}
+@media(max-width:800px){.kv{grid-template-columns:1fr 1fr}}
+.kv div{background:#fff;padding:12px 14px}.kv dt{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-weight:600}
+.kv dd{margin:3px 0 0;font-weight:600;font-size:13.5px;word-break:break-all}
+
+/* mandate chain */
+.chain{display:flex;gap:10px;flex-wrap:wrap;align-items:stretch}
+.mcard{flex:1;min-width:220px;border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:#fff}
+.mcard.ACTIVE{border-color:#a7f3d0;box-shadow:0 0 0 3px rgba(5,150,105,.07)}
+.mcard .top2{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.mcard dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:3px 10px;font-size:12px}
+.mcard dt{color:var(--muted)}.mcard dd{margin:0;font-family:var(--mono);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.arrow{align-self:center;color:var(--faint);font-size:18px}
+
+/* empty */
+.empty{padding:40px 20px;text-align:center;color:var(--muted)}
+.empty .shield{width:56px;height:56px;margin:0 auto 12px;opacity:.9}
+.empty h3{color:var(--ink);margin:0 0 6px;font-size:16px}
+.how{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:20px;text-align:left}
+@media(max-width:800px){.how{grid-template-columns:1fr}}
+.how div{border:1px solid var(--line-2);border-radius:12px;padding:12px 14px;background:#fbfbfe;font-size:12.5px}
+.how b{display:block;color:var(--ink);font-size:13px;margin-bottom:2px}
+
+/* drift lab */
+.scen{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.sbtn{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:#fff;cursor:pointer;font:inherit;transition:.15s}
+.sbtn:hover:not(:disabled){border-color:#fcd34d;background:#fffdf5}
+.sbtn b{font-size:12.5px;font-weight:600;color:var(--ink)}.sbtn span{font-size:11.5px;color:var(--muted)}
+.sbtn.armed{border-color:var(--warn);background:var(--warn-soft)}.sbtn.armed b::after{content:" · armed";color:var(--warn);font-weight:700}
+.sbtn:disabled{opacity:.5;cursor:not-allowed}
+
+/* audit */
+.timeline{max-height:640px;overflow:auto;padding:6px 20px 14px}
+.ev{position:relative;display:grid;grid-template-columns:18px 1fr;gap:10px;padding:10px 0;cursor:pointer}
+.ev::before{content:"";position:absolute;left:8px;top:28px;bottom:-10px;width:2px;background:var(--line-2)}
+.ev:last-child::before{display:none}
+.ev .d{width:18px;height:18px;border-radius:50%;background:#e2e8f0;border:4px solid #fff;box-shadow:0 0 0 1px var(--line);margin-top:2px;position:relative;z-index:1}
+.ev.ok .d{background:var(--ok)}.ev.warn .d{background:var(--warn)}.ev.bad .d{background:var(--bad)}.ev.acc .d{background:var(--accent)}.ev.info .d{background:var(--info)}
+.ev .t1{display:flex;gap:8px;align-items:baseline}
+.ev .t1 b{font-size:13px;font-weight:600}
+.ev .t1 .tm{margin-left:auto;color:var(--faint);font-size:11px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.ev .t2{color:var(--muted);font-size:12px;margin-top:1px}
+.ev .h{font-family:var(--mono);font-size:10.5px;color:var(--faint)}
+.ev pre{display:none;margin:8px 0 0;padding:10px;border-radius:8px;background:#0f172a;color:#cbd5e1;font-size:11px;white-space:pre-wrap;word-break:break-all;max-height:260px;overflow:auto}
+.ev.open pre{display:block}
+.verify{margin:0 20px 16px;padding:10px 12px;border-radius:10px;font-size:12.5px;display:none}
+.verify.ok{display:block;background:var(--ok-soft);color:#065f46;border:1px solid #a7f3d0}
+.verify.bad{display:block;background:var(--bad-soft);color:#991b1b;border:1px solid #fecaca}
+
+.recent{display:flex;flex-direction:column}
+.recent button{display:flex;align-items:center;gap:10px;text-align:left;padding:10px 20px;border:0;border-top:1px solid var(--line-2);background:#fff;cursor:pointer;font:inherit;color:var(--ink-2)}
+.recent button:hover{background:#f8fafc}.recent button.cur{background:var(--accent-soft)}
+.recent .ri{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px}
+.muted{color:var(--muted)}.small{font-size:12px}
+@media(max-width:760px){.top{position:static}.top-in{flex-wrap:wrap;padding:12px 16px;gap:10px}.brand small{display:none}.chips{margin-left:0}.chip{padding:3px 9px;font-size:11px}main{padding:16px 12px 60px}.card-h{flex-wrap:wrap}.card-h .sub{flex-basis:100%;order:3}.stepper{padding:14px 8px}.step{font-size:10px}}
+footer{max-width:1440px;margin:-36px auto 0;padding:0 28px 30px;color:var(--faint);font-size:12px}
+</style>
+</head>
+<body>
+<header class="top"><div class="top-in">
+  <div class="brand">
+    <svg width="28" height="28" viewBox="0 0 32 32"><path d="M16 2l11 4v9c0 7-4.7 12.6-11 15C9.7 27.6 5 22 5 15V6z" fill="#6366f1"/><path d="M11 16l3.5 3.5L21.5 12" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <div>Mandate Guard<small>Intent-bound checkout agent that asks again when terms change</small></div>
+  </div>
+  <div class="chips" id="chips"><span class="chip"><span class="dot"></span>Connecting…</span></div>
+</div></header>
+
+<main>
+  <div class="col">
+    <section class="card">
+      <div class="card-h"><h2>New purchase</h2><span class="sub">Tell the agent what you want. It proposes; you sign; code enforces.</span></div>
+      <div class="card-b">
+        <div class="intent"><textarea id="intent" placeholder="e.g. A 1m USB-C cable under $15, delivered by Friday">Buy me a 1m USB-C cable under $15, delivered by Friday</textarea></div>
+        <div class="examples" id="examples"></div>
+        <div class="grid2">
+          <div><label class="f" for="budget">Budget (USD)</label><input id="budget" type="number" step="0.01" min="0" placeholder="Optional · e.g. 15.00"></div>
+          <div><label class="f" for="deliver_by">Deliver by</label><input id="deliver_by" type="date"></div>
+        </div>
+        <details class="manual"><summary>Pick the product manually (skip the agent)</summary>
+          <div class="grid3">
+            <div><label class="f" for="sku">Product</label><select id="sku"><option value="">Let the agent choose</option></select></div>
+            <div><label class="f" for="qty">Quantity</label><input id="qty" type="number" min="1" max="10" value="1"></div>
+            <div><label class="f" for="ship">Delivery</label><select id="ship"></select></div>
+          </div>
+        </details>
+        <div class="actions">
+          <button class="btn primary" id="go">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+            Find &amp; propose</button>
+          <span class="hint" id="agentHint"></span>
+        </div>
+        <div id="askmsg"></div>
+      </div>
+    </section>
+
+    <section class="card" id="sessionCard">
+      <div class="empty">
+        <svg class="shield" viewBox="0 0 32 32"><path d="M16 2l11 4v9c0 7-4.7 12.6-11 15C9.7 27.6 5 22 5 15V6z" fill="#eef2ff" stroke="#6366f1" stroke-width="1.5"/><path d="M11 16l3.5 3.5L21.5 12" stroke="#6366f1" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <h3>No purchase in progress</h3>
+        <div>Describe what you want above. Nothing is bought until you approve the exact terms.</div>
+        <div class="how">
+          <div><b>1 · Sign exact terms</b>Your approval becomes an Ed25519-signed mandate: items, merchant, delivery and total.</div>
+          <div><b>2 · Checked at checkout</b>A deterministic policy engine (not the LLM) compares the live checkout line by line.</div>
+          <div><b>3 · Asks again on drift</b>Price, fee, item or delivery changed? It pauses, shows the diff and resumes the same cart.</div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <aside class="col">
+    <section class="card">
+      <div class="card-h"><h2>Drift lab</h2><span class="sub">Make the merchant change terms</span>
+        <div class="right"><button class="btn ghost sm" id="reset" title="Clear armed drift and merchant orders">Reset</button></div></div>
+      <div class="card-b">
+        <div class="scen" id="scen"></div>
+        <p class="small muted" style="margin:12px 0 0">Arm a change after approving, then run checkout. Changes apply only on Drift Mart's checkout page. <a id="console" target="_blank" rel="noopener">Merchant console ↗</a></p>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-h"><h2>Audit log</h2><span class="sub" id="auditSub">hash-chained · append-only</span>
+        <div class="right"><button class="btn ghost sm" id="verify">Verify chain</button></div></div>
+      <div class="verify" id="verifyOut"></div>
+      <div class="timeline" id="audit"><p class="small muted" style="padding:10px 0">Every proposal, signature, policy decision, credential and payment result is recorded here.</p></div>
+    </section>
+
+    <section class="card" id="recentCard" style="overflow:hidden" hidden>
+      <div class="card-h"><h2>Recent purchases</h2></div>
+      <div class="recent" id="recent"></div>
+    </section>
+  </aside>
+</main>
+<footer>Mandate Guard · Airwallex Agentic Banking Hackathon · Kit 09 · Card data never enters the model, the browser UI or the audit log.</footer>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+const money = (c, cur = "USD") => new Intl.NumberFormat("en-US", { style: "currency", currency: cur }).format((c ?? 0) / 100);
+const day = (iso) => (iso ? new Date(iso).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }) : "—");
+const time = (iso) => new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
+const short = (s, n = 8) => (s ? String(s).slice(0, n) : "");
+let current = null, busy = false, cfg = null;
+
+async function api(path, body) {
+  const r = await fetch(path, body === undefined ? {} : { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || r.statusText);
+  return j;
+}
+
+const EXAMPLES = [
+  "Buy me a 1m USB-C cable under $15, delivered by Friday",
+  "Wireless earbuds under $50",
+  "A 30W USB-C charger, cheapest option",
+  "A wireless mouse for under $25 with express delivery",
+];
+const SCEN = {
+  price_bump: ["Price increase", "Cart items +20%"],
+  surprise_fee: ["Surprise fee", "$1.99 handling fee"],
+  substitution: ["Item swapped", "1m cable → 2m cable"],
+  subscription: ["Sneaky subscription", "Pre-ticked $2.99/mo plan"],
+  slow_shipping: ["Slower delivery", "Economy, 8 days"],
+  out_of_stock: ["Out of stock", "1m cable dropped"],
+  payment_timeout: ["Payment timeout", "Charge, then drop reply"],
+};
+
+/* ------------------------------------------------------------------ init */
+async function init() {
+  cfg = await api("/api/config");
+  $("#console").href = cfg.merchant.origin + "/admin";
+  $("#agentHint").textContent = cfg.model ? `Agent: ${cfg.model} · proposes only, never pays` : "Agent offline · pick a product manually";
+  for (const e of EXAMPLES) {
+    const b = document.createElement("button"); b.className = "ex"; b.type = "button"; b.textContent = e;
+    b.onclick = () => { $("#intent").value = e; $("#intent").focus(); };
+    $("#examples").append(b);
+  }
+  const [products, ship] = await Promise.all([api("/api/products"), api("/api/shipping")]);
+  for (const p of products) $("#sku").insertAdjacentHTML("beforeend", `<option value="${esc(p.sku)}">${esc(p.title)} · ${money(p.price)}</option>`);
+  for (const s of ship) $("#ship").insertAdjacentHTML("beforeend", `<option value="${esc(s.id)}">${esc(s.title)} · ${money(s.cost)}</option>`);
+  for (const [k, [t, d]] of Object.entries(SCEN)) {
+    const b = document.createElement("button"); b.className = "sbtn"; b.dataset.k = k; b.type = "button";
+    b.innerHTML = `<b>${esc(t)}</b><span>${esc(d)}</span>`;
+    b.onclick = async () => { await api(`/api/demo/scenario/${k}`, {}); showArmed(); };
+    $("#scen").append(b);
+  }
+  await Promise.all([renderChips(), showArmed(), loadRecent()]);
+}
+
+async function renderChips() {
+  let g = { signed_in: null };
+  try { g = await api("/api/gateway/status"); } catch {}
+  const airi = cfg.gateway.startsWith("airi");
+  const gw = airi
+    ? `<span class="chip"><span class="dot ${g.signed_in ? "ok" : "bad"}"></span>Airi CLI <b>${g.signed_in ? "signed in" : "signed out"}</b></span>`
+    : `<span class="chip"><span class="dot warn"></span>Gateway <b>test card</b></span>`;
+  $("#chips").innerHTML = `
+    <span class="chip"><span class="dot ok"></span>Merchant <b>${esc(cfg.merchant.name)}</b></span>
+    <span class="chip"><span class="dot ${cfg.model ? "ok" : "warn"}"></span>Agent <b>${esc(cfg.model ?? "off")}</b></span>
+    ${gw}
+    <span class="chip">Adapter <b>${esc(cfg.adapter === "browser" ? "Playwright" : "API")}</b></span>
+    ${cfg.issuer_limit ? `<span class="chip">Issuer limit <b>${money(cfg.issuer_limit)}</b></span>` : ""}`;
+}
+
+async function showArmed() {
+  const d = await api("/api/demo/drift");
+  const on = {
+    price_bump: Object.keys(d.priceOverrides || {}).length > 0, surprise_fee: !!d.surpriseFee, out_of_stock: (d.outOfStock || []).length > 0,
+    substitution: Object.keys(d.substitutions || {}).length > 0, subscription: !!d.subscriptionAddon, slow_shipping: !!d.shippingDowngrade,
+    payment_timeout: !!d.dropNextPaymentResponse,
+  };
+  document.querySelectorAll(".sbtn").forEach((b) => b.classList.toggle("armed", !!on[b.dataset.k]));
+}
+
+async function loadRecent() {
+  const list = await api("/api/sessions");
+  $("#recentCard").hidden = list.length === 0;
+  $("#recent").innerHTML = list.slice(0, 8).map((s) => `<button data-id="${esc(s.id)}" class="${current?.session.id === s.id ? "cur" : ""}">
+      <span class="ri">${esc(s.intent)}</span><span class="pill ${esc(s.state)}">${esc(s.state.replaceAll("_", " "))}</span></button>`).join("");
+  document.querySelectorAll("#recent button").forEach((b) => (b.onclick = async () => { current = await api(`/api/sessions/${b.dataset.id}`); render(); loadRecent(); }));
+}
+
+$("#reset").onclick = async () => { await api("/api/demo/reset", {}); showArmed(); };
+$("#verify").onclick = async () => {
+  const v = await api("/api/audit/verify"), o = $("#verifyOut");
+  o.className = "verify " + (v.ok ? "ok" : "bad");
+  o.textContent = v.ok ? `✓ Chain intact: all ${v.count} entries re-hashed and linked correctly.` : `✗ Chain broken at entry #${v.brokenAt}: ${v.reason}`;
+};
+
+/* --------------------------------------------------------------- actions */
+$("#go").onclick = async () => {
+  if (busy) return;
+  const sku = $("#sku").value;
+  setBusy(true, sku ? "Building the cart at the merchant…" : "The agent is searching the catalog and comparing options…", "#askmsg");
+  try {
+    current = await api("/api/sessions", {
+      intent: $("#intent").value, budget: $("#budget").value || undefined, deliver_by: $("#deliver_by").value || undefined,
+      ...(sku ? { sku, quantity: Number($("#qty").value || 1), shipping_id: $("#ship").value } : {}),
+    });
+    $("#askmsg").innerHTML = "";
+    render(); loadRecent();
+  } catch (e) { $("#askmsg").innerHTML = `<div class="err">${esc(e.message)}</div>`; }
+  setBusy(false);
+};
+
+async function act(action, label) {
+  if (busy || !current) return;
+  const id = current.session.id;
+  setBusy(true, label, "#actmsg");
+  // Long actions (e.g. waiting for the Airi passkey) stay live by polling the session.
+  const poll = setInterval(async () => {
+    try { current = await api(`/api/sessions/${id}`); render(); setBusy(true, current.session.message || label, "#actmsg"); } catch {}
+  }, 1500);
+  let err = null;
+  try { current = await api(`/api/sessions/${id}/${action}`, {}); }
+  catch (e) { err = e; try { current = await api(`/api/sessions/${id}`); } catch {} }
+  clearInterval(poll); setBusy(false); render(); showArmed(); loadRecent();
+  if (err) $("#actmsg").innerHTML = `<div class="err">${esc(err.message)}</div>`;
+}
+
+function setBusy(b, label, target) {
+  busy = b;
+  document.querySelectorAll("button").forEach((x) => { if (!x.closest(".timeline") && !x.closest("#recent")) x.disabled = b; });
+  if (b && target && $(target)) $(target).innerHTML = `<div class="working"><span class="spin"></span>${esc(label)}</div>`;
+}
+
+/* ----------------------------------------------------------------- views */
+function steps(s, audit) {
+  const has = (t) => audit.some((e) => e.type === t);
+  const st = s.state;
+  const signed = s.mandates.length > 0;
+  const checked = has("CHECKOUT_OBSERVED");
+  const paidish = ["PAID", "DECLINED"].includes(st);
+  const out = [
+    ["Request", "done"],
+    ["Proposal", "done"],
+    ["Signed mandate", signed ? "done" : st === "PROPOSED" ? "active" : st === "CANCELLED" ? "bad" : ""],
+    ["Checkout check", st === "AWAITING_RECONSENT" ? "warn" : st === "BLOCKED" ? "bad" : (st === "PAYING" || paidish || st === "UNCONFIRMED") ? "done" : st === "APPROVED" ? "active" : checked ? "done" : ""],
+    ["Issuer approval", st === "PAYING" ? "active" : (paidish || st === "UNCONFIRMED") ? "done" : ""],
+    ["Paid & reported", st === "PAID" && has("RESULT_REPORTED") ? "done" : st === "PAID" ? "active" : st === "DECLINED" ? "bad" : st === "UNCONFIRMED" ? "warn" : ""],
+  ];
+  if (st === "CANCELLED") out.slice(3).forEach((x) => (x[1] = x[1] === "done" ? "done" : ""));
+  return `<div class="stepper">${out.map(([l, c], i) => `<div class="step ${c}"><div class="n">${c === "done" ? "✓" : c === "bad" ? "✕" : c === "warn" ? "!" : i + 1}</div>${esc(l)}</div>`).join("")}</div>`;
+}
+
+/** Receipt; when `base` is given, rows that differ from it are highlighted. */
+function receipt(t, base, totalLabel) {
+  const cur = t.currency;
+  const bItems = new Map((base?.items || []).map((i) => [i.sku, i]));
+  const tSkus = new Set(t.items.map((i) => i.sku));
+  let rows = t.items.map((i) => {
+    const b = bItems.get(i.sku);
+    const cls = !base ? "" : !b ? "add" : b.unit_price !== i.unit_price || b.quantity !== i.quantity ? "chg" : "";
+    const was = base && b && b.unit_price * b.quantity !== i.unit_price * i.quantity ? `<span class="was">${money(b.unit_price * b.quantity, cur)}</span>` : "";
+    const tag = cls === "add" ? `<span class="tag add">new</span>` : cls === "chg" ? `<span class="tag chg">changed</span>` : "";
+    return `<tr class="${cls}"><td>${esc(i.title)}${tag}<span class="s">${esc(i.sku)} · ${money(i.unit_price, cur)} each</span></td><td class="r">× ${i.quantity}</td><td class="r">${was}${money(i.unit_price * i.quantity, cur)}</td></tr>`;
+  }).join("");
+  if (base) rows += base.items.filter((i) => !tSkus.has(i.sku)).map((i) => `<tr class="rem"><td>${esc(i.title)}<span class="tag rem">removed</span></td><td class="r">× ${i.quantity}</td><td class="r">${money(i.unit_price * i.quantity, cur)}</td></tr>`).join("");
+  const f = t.fulfillment, bf = base?.fulfillment;
+  const fchg = base && (f.title !== bf.title || f.cost !== bf.cost || (f.latest_delivery_at || "") > (bf.latest_delivery_at || ""));
+  rows += `<tr class="${fchg ? "chg" : ""}"><td>${esc(f.title)}${fchg ? `<span class="tag chg">changed</span>` : ""}<span class="s">Arrives by ${day(f.latest_delivery_at)}</span></td><td></td><td class="r">${fchg && bf.cost !== f.cost ? `<span class="was">${money(bf.cost, cur)}</span>` : ""}${money(f.cost, cur)}</td></tr>`;
+  const bFees = new Map((base?.fees || []).map((x) => [x.label, x.amount]));
+  rows += (t.fees || []).map((x) => {
+    const cls = base && !bFees.has(x.label) ? "add" : base && bFees.get(x.label) !== x.amount ? "chg" : "";
+    return `<tr class="${cls}"><td>${esc(x.label)}${cls === "add" ? `<span class="tag add">new</span>` : ""}</td><td></td><td class="r">${money(x.amount, cur)}</td></tr>`;
+  }).join("");
+  const tchg = base && base.total_cap !== t.total_cap;
+  rows += `<tr class="total"><td>${esc(totalLabel || "Total (approved cap)")}</td><td></td><td class="r">${tchg ? `<span class="was">${money(base.total_cap, cur)}</span>` : ""}${money(t.total_cap, cur)}</td></tr>`;
+  return `<table class="receipt"><tr><th>Item</th><th class="r">Qty</th><th class="r">Amount</th></tr>${rows}</table>`;
+}
+
+function binding(t) {
+  return `<div class="binding">
+    <span>🏪 <b>${esc(t.merchant.name)}</b> <code>${esc(t.merchant.origin)}</code></span>
+    <span>💱 <b>${esc(t.currency)}</b></span>
+    <span>📦 by <b>${day(t.fulfillment.latest_delivery_at)}</b></span>
+    <span>🔁 Recurring <b>${t.allow_recurring ? "allowed" : "not allowed"}</b></span>
+    <span>🔀 Substitutes <b>${t.allow_substitutions ? "allowed" : "not allowed"}</b></span></div>`;
+}
+
+function mandateChain(s) {
+  if (!s.mandates.length) return "";
+  const cards = s.mandates.map((m) => `<div class="mcard ${m.status}">
+      <div class="top2"><b class="mono">${esc(short(m.mandate.mandate_id))}</b><span class="pill ${m.status}">${m.status}</span></div>
+      <dl><dt>Cap</dt><dd>${money(m.mandate.total_cap, m.mandate.currency)}</dd>
+      <dt>Digest</dt><dd title="${esc(m.digest)}">${esc(short(m.digest, 16))}…</dd>
+      <dt>Expires</dt><dd>${time(m.mandate.expires_at)}</dd>
+      ${m.mandate.supersedes ? `<dt>Replaces</dt><dd>${esc(short(m.mandate.supersedes))}</dd>` : ""}</dl></div>`);
+  return `<div style="margin-top:22px"><div class="eyebrow" style="margin-bottom:8px">Signed mandates · Ed25519 JWS</div>
+    <div class="chain">${cards.join(`<span class="arrow">→</span>`)}</div></div>`;
+}
+
+function render() {
+  if (!current) return;
+  const { session: s, transcript, audit } = current;
+  const active = s.mandates.find((m) => m.status === "ACTIVE") || s.mandates.at(-1);
+  const head = `<div class="card-h"><h2>Purchase</h2><span class="sub mono">${esc(short(s.id))}</span><div class="right"><span class="pill ${esc(s.state)}">${esc(s.state.replaceAll("_", " "))}</span></div></div>`;
+  let b = `<p class="intent-line">${esc(s.intent)}</p><div class="meta-line">Cart <code>${esc(short(s.cart_id))}</code> at ${esc(cfg?.merchant.name ?? "merchant")} · started ${time(s.created_at)}</div>`;
+
+  if (transcript?.length) {
+    const calls = transcript.filter((t) => /^\w+\(/.test(t)), say = transcript.filter((t) => !/^\w+\(/.test(t));
+    b += `<div class="agent"><div class="eyebrow">🤖 Agent reasoning <span class="muted" style="text-transform:none;letter-spacing:0;font-weight:500">· ${esc(cfg?.model ?? "")}</span></div>
+      ${calls.length ? `<ol>${calls.map((c) => `<li>${esc(c)}</li>`).join("")}</ol>` : ""}${say.map((t) => `<p>${esc(t)}</p>`).join("")}</div>`;
+  } else if (s.rationale) b += `<div class="agent"><div class="eyebrow">Selection</div><p>${esc(s.rationale)}</p></div>`;
+
+  b += `<div style="margin-top:20px">`;
+  if (s.state === "PROPOSED" && s.pending_terms) {
+    b += receipt(s.pending_terms) + binding(s.pending_terms) + `
+      <div class="actions"><button class="btn ok" onclick="act('approve','Signing your mandate…')">✍️ Approve &amp; sign mandate</button>
+      <button class="btn ghost" onclick="act('reject','Cancelling…')">Reject</button>
+      <span class="hint">Anything different at checkout will pause the agent.</span></div>`;
+  } else if (s.state === "AWAITING_RECONSENT" && s.pending_terms && active) {
+    const f = s.last_policy?.findings || [];
+    const delta = (s.last_policy?.observed_total ?? 0) - (s.last_policy?.total_cap ?? 0);
+    b += `<div class="banner warn"><div class="ic">⚠️</div><div><h3>The checkout no longer matches what you approved</h3>
+        <p>Paused before paying. The cart is held${delta > 0 ? `, and the total is <b>${money(delta)}</b> over your approval` : ""}. Nothing has been charged.</p></div></div>
+      <div class="findings">${f.map((x) => `<div class="finding ${esc(x.severity)}"><code>${esc(x.code)}</code><span>${esc(x.message)}</span></div>`).join("")}</div>
+      <div class="cmp"><div class="pane"><h4>You approved</h4>${receipt(active.mandate)}</div>
+        <div class="pane new"><h4>Checkout now shows</h4>${receipt(s.pending_terms, active.mandate, "New total")}</div></div>
+      <div class="actions"><button class="btn ok" onclick="act('approve','Signing a replacement mandate…')">✍️ Approve new terms &amp; resume</button>
+        <button class="btn danger" onclick="act('reject','Cancelling…')">Reject &amp; cancel</button>
+        <span class="hint">Approving signs a new mandate that supersedes the old one.</span></div>`;
+  } else if (s.state === "PAID" && s.order) {
+    const reported = audit.some((e) => e.type === "RESULT_REPORTED");
+    const cred = [...audit].reverse().find((e) => e.type === "CREDENTIAL_ISSUED");
+    b += `<div class="success"><div class="big">✓</div><h3>Paid ${money(s.order.total)}</h3><p>Exactly what you approved, and nothing more.</p></div>
+      <dl class="kv"><div><dt>Order</dt><dd>${esc(s.order.order_id)}</dd></div>
+        <div><dt>Card</dt><dd>•••• ${esc(cred?.data.card_last4 ?? "—")}</dd></div>
+        <div><dt>Issuer mandate</dt><dd class="mono">${esc(short(cred?.data.payment_mandate_id, 14) || "—")}</dd></div>
+        <div><dt>Reported to issuer</dt><dd style="color:${reported ? "var(--ok)" : "var(--warn)"}">${reported ? "✓ SUCCEEDED" : "pending"}</dd></div></dl>`;
+    if (active) b += `<details style="margin-top:16px"><summary class="small muted" style="cursor:pointer">Show approved terms</summary><div style="margin-top:10px">${receipt(active.mandate)}</div></details>`;
+  } else {
+    if (s.state === "BLOCKED") b += `<div class="banner bad"><div class="ic">⛔</div><div><h3>Blocked</h3><p>${esc(s.message)}</p></div></div>`;
+    if (s.state === "DECLINED") b += `<div class="banner bad"><div class="ic">✕</div><div><h3>Payment declined</h3><p>${esc(s.message)}</p></div></div>`;
+    if (s.state === "CANCELLED") b += `<div class="banner bad"><div class="ic">✕</div><div><h3>Cancelled</h3><p>${esc(s.message)}</p></div></div>`;
+    if (s.state === "UNCONFIRMED") b += `<div class="banner info"><div class="ic">⏱️</div><div><h3>Payment unconfirmed</h3><p>The merchant didn't answer. We look the attempt up instead of paying again, so there is no risk of a double charge.</p></div></div>`;
+    if (s.state === "PAYING") {
+      b += s.approval_url
+        ? `<div class="airi"><div class="lock">🔐</div><div><h3>Approve this payment in Airi</h3><p>Airi needs your passkey for exactly ${money(s.last_policy?.observed_total)} at ${esc(cfg?.merchant.name ?? "")}.</p></div>
+           <a class="btn primary" href="${esc(s.approval_url)}" target="_blank" rel="noopener">Open Airi ↗</a></div>`
+        : `<div class="banner info"><div class="ic">💳</div><div><h3>Paying</h3><p>${esc(s.message || "Requesting a single-use credential and submitting payment…")}</p></div></div>`;
+    }
+    if (s.state === "APPROVED" && s.message && s.attempts.length) b += `<div class="banner info"><div class="ic">ℹ️</div><div><h3>Ready to continue</h3><p>${esc(s.message)}</p></div></div>`;
+    if (active) b += receipt(active.mandate) + binding(active.mandate);
+    if (s.state === "APPROVED") b += `<div class="actions"><button class="btn primary" onclick="act('checkout','Re-reading the checkout and checking it against your mandate…')">🛒 Run checkout</button>
+        <button class="btn ghost" onclick="act('reject','Cancelling…')">Cancel</button><span class="hint">Pays only if the live checkout matches your signed terms.</span></div>`;
+    if (s.state === "UNCONFIRMED") b += `<div class="actions"><button class="btn primary" onclick="act('reconcile','Looking up the attempt at the merchant…')">🔎 Look up attempt</button><span class="hint">Never re-submits payment.</span></div>`;
+  }
+  b += `</div>` + mandateChain(s) + `<div id="actmsg"></div>`;
+  $("#sessionCard").innerHTML = head + steps(s, audit) + `<div class="card-b" style="border-top:1px solid var(--line-2)">${b}</div>`;
+  renderAudit(audit);
+}
+
+const EV = {
+  PROPOSED: ["Proposal built", "acc"], APPROVED: ["Mandate signed", "ok"], RECONSENT_APPROVED: ["Re-approved: new mandate signed", "ok"],
+  REJECTED: ["Rejected by shopper", "bad"], RECONSENT_REJECTED: ["Re-consent rejected", "bad"], MANDATE_VERIFIED: ["Signature verified", "ok"],
+  PAUSED_FOR_RECONSENT: ["Paused for re-consent", "warn"], ISSUER_APPROVAL_REQUESTED: ["Issuer approval requested", "acc"],
+  CREDENTIAL_ISSUED: ["Single-use credential issued", "acc"], CREDENTIAL_REFUSED: ["Credential refused", "bad"], PAYMENT_SUBMITTED: ["Payment submitted", "info"],
+  PAYMENT_REFUSED_TOTAL_CHANGED: ["Merchant refused: total changed", "warn"], PAYMENT_UNCONFIRMED: ["Payment unconfirmed", "warn"],
+  PRIOR_ATTEMPT_FOUND: ["Prior attempt found", "info"], RECONCILED_NO_CHARGE: ["No charge found", "info"], PAID: ["Paid", "ok"],
+  PAYMENT_FAILED: ["Payment failed", "bad"], RESULT_REPORTED: ["Result reported to issuer", "ok"], RESULT_REPORT_FAILED: ["Report to issuer failed", "bad"],
+};
+function evDetail(e) {
+  const d = e.data || {};
+  switch (e.type) {
+    case "PROPOSED": return d.terms ? `${d.terms.items.map((i) => `${i.quantity}× ${i.title}`).join(", ")} · ${money(d.terms.total_cap)}` : "";
+    case "APPROVED": case "RECONSENT_APPROVED": return `mandate ${short(d.mandate_id)} · cap ${money(d.total_cap)}${d.supersedes ? ` · replaces ${short(d.supersedes)}` : ""}`;
+    case "CHECKOUT_OBSERVED": return `${d.decision} · ${money(d.observed_total)} vs cap ${money(d.total_cap)}${d.findings?.length ? " · " + d.findings.map((f) => f.code).join(", ") : ""}`;
+    case "ISSUER_APPROVAL_REQUESTED": return `${d.gateway} · ${d.payment_mandate_id}`;
+    case "CREDENTIAL_ISSUED": return `${d.gateway} · card •••• ${d.card_last4} · limit ${money(d.amount_limit)}`;
+    case "PAYMENT_SUBMITTED": return `${money(d.amount)} · key ${short(d.idempotency_key, 14)}…`;
+    case "PAID": return `${d.order_id} · ${money(d.total)}`;
+    case "RESULT_REPORTED": return `${d.status} → ${d.gateway}`;
+    case "PAYMENT_UNCONFIRMED": return d.error ?? "";
+    default: return d.message ?? d.error ?? d.reason ?? "";
+  }
+}
+function renderAudit(audit) {
+  $("#auditSub").textContent = `${audit.length} ${audit.length === 1 ? "entry" : "entries"} · this purchase`;
+  $("#verifyOut").className = "verify";
+  $("#audit").innerHTML = audit.map((e) => {
+    let [label, tone] = EV[e.type] || [e.type, ""];
+    if (e.type === "CHECKOUT_OBSERVED") [label, tone] = e.data.decision === "MATCH" ? ["Checkout matches mandate", "ok"] : e.data.decision === "DRIFT" ? ["Drift detected", "warn"] : ["Blocked by policy", "bad"];
+    return `<div class="ev ${tone}" onclick="this.classList.toggle('open')"><span class="d"></span><div>
+      <div class="t1"><b>${esc(label)}</b><span class="tm">#${e.seq} · ${time(e.ts)}</span></div>
+      <div class="t2">${esc(evDetail(e))}</div><div class="h">${esc(e.hash.slice(0, 20))}… ← ${esc(e.prev_hash.slice(0, 8))}</div>
+      <pre>${esc(JSON.stringify(e.data, null, 2))}</pre></div></div>`;
+  }).join("") || `<p class="small muted">No entries yet.</p>`;
+  const tl = $("#audit"); tl.scrollTop = tl.scrollHeight;
+}
+
+init().catch((e) => ($("#chips").innerHTML = `<span class="chip"><span class="dot bad"></span>${esc(e.message)}</span>`));
+</script>
+</body>
+</html>
